@@ -61,10 +61,10 @@ export default function Booking({
 
       const res = await apiPost("/bookings", payload);
 
-      // ✅ Előbb állapot → hogy legyen mit kirajzolni
+     
       setBookingState({ loading: false, ok: res, error: "" });
 
-      // ✅ csak utána ürítjük a kosarat
+      
       clear();
 
       if (onDone) onDone();
@@ -77,7 +77,6 @@ export default function Booking({
     }
   }
 
-  /* ✅ SIKER ESETÉN MINDIG EZ LÁTSZÓDJON (MÉG AKKOR IS, HA clear() ÜRÍTETT) */
   if (bookingState.ok) {
     return (
       <div className="col-content">
@@ -103,12 +102,12 @@ export default function Booking({
     );
   }
 
-  /* ✅ csak ezután nézzük a kosarat */
+  
   if (cartEmpty) {
     return <div className="card">A kosár üres.</div>;
   }
 
-  /* -------- 2. lépés: slot választás -------- */
+  
   if (mode === "slots") {
     return (
       <div className="col-content">
@@ -165,7 +164,7 @@ export default function Booking({
     );
   }
 
-  /* -------- 3. lépés: véglegesítés -------- */
+
   return (
     <div className="col-content">
       <div className="form-container" style={{ display: "grid", gap: 12 }}>

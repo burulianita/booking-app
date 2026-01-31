@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
 
-/* ------------ CORS + JSON ------------ */
+
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if ($origin && defined('ALLOWED_ORIGINS') && in_array($origin, ALLOWED_ORIGINS, true)) {
   header("Access-Control-Allow-Origin: $origin");
@@ -19,7 +19,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
   exit;
 }
 
-/* ------------ Helpers ------------ */
+
 function respond($data, int $code = 200): void {
   http_response_code($code);
   echo json_encode($data, JSON_UNESCAPED_UNICODE);
@@ -33,37 +33,32 @@ function json_input(): array {
   return is_array($data) ? $data : [];
 }
 
-/**
- * Route meghatározása XAMPP-hoz stabilan.
- * Elfogadja:
- *  - /backend/index.php/services
- *  - /backend/index.php?route=/services
- */
+
 function route_path(): string {
-  // 1) Ha van query param
+  
   if (!empty($_GET['route'])) {
     $p = (string)$_GET['route'];
     if ($p === '') return '/';
     return $p[0] === '/' ? $p : "/$p";
   }
 
-  // 2) PATH_INFO (ha működik)
+ 
   if (!empty($_SERVER['PATH_INFO'])) {
     return (string)$_SERVER['PATH_INFO'];
   }
 
-  // 3) REQUEST_URI-ból kivágjuk az index.php utáni részt
-  $uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
-  $uri = explode('?', $uri, 2)[0]; // query nélkül
 
-  $script = (string)($_SERVER['SCRIPT_NAME'] ?? ''); // pl. /booking-app/backend/index.php
+  $uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+  $uri = explode('?', $uri, 2)[0]; 
+
+  $script = (string)($_SERVER['SCRIPT_NAME'] ?? ''); 
 
   if ($script !== '' && str_starts_with($uri, $script)) {
-    $rest = substr($uri, strlen($script)); // pl. /services
+    $rest = substr($uri, strlen($script)); 
     return $rest !== '' ? $rest : '/';
   }
 
-  // fallback
+ 
   return '/';
 }
 
@@ -78,12 +73,11 @@ function overlaps(string $aStart, string $aEnd, string $bStart, string $bEnd): b
   return ($aStart < $bEnd) && ($bStart < $aEnd);
 }
 
-/* ------------ DB + Request ------------ */
 $pdo = db();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $path = route_path();
 
-/* ------------ Ping / Debug ------------ */
+
 if ($method === 'GET' && isset($_GET['ping'])) {
   header("Content-Type: text/plain; charset=utf-8");
   echo "OK - backend index.php running";
@@ -109,11 +103,7 @@ if ($method === 'GET' && isset($_GET['debug'])) {
   }
 }
 
-/* ------------ Endpoints ------------ */
 
-/**
- * GET /services
- */
 if ($method === 'GET' && $path === '/services') {
   $stmt = $pdo->query("
     SELECT id, name, duration_min, price
@@ -124,11 +114,7 @@ if ($method === 'GET' && $path === '/services') {
   respond(['services' => $stmt->fetchAll()]);
 }
 
-/**
- * GET /slots?date=YYYY-MM-DD&duration_min=60
- * Nyitvatartás: 09:00–17:00, 15 perces indulások
- * Foglalások ütközése: bookings + booking_items + services alapján.
- */
+
 if ($method === 'GET' && $path === '/slots') {
   $date = (string)($_GET['date'] ?? '');
   $durationMin = (int)($_GET['duration_min'] ?? 0);
@@ -182,21 +168,7 @@ if ($method === 'GET' && $path === '/slots') {
   respond(['slots' => $slots]);
 }
 
-/**
- * POST /bookings
- * Body:
- * {
- *  "name":"XY",
- *  "email":"xy@xy.hu",
- *  "date":"2026-01-30",
- *  "start_time":"10:30",
- *  "items":[{"serviceId":1,"qty":1}, ...]
- * }
- *
- * DB sémádhoz igazítva:
- * bookings: customer_name, email, slot_date, start_time, total
- * booking_items: booking_id, service_id, service_name, price, qty
- */
+
 if ($method === 'POST' && $path === '/bookings') {
   $data = json_input();
 
@@ -212,7 +184,7 @@ if ($method === 'POST' && $path === '/bookings') {
   if (!preg_match('/^\d{2}:\d{2}$/', $start)) respond(['error' => 'Invalid start_time'], 400);
   if (!is_array($items) || count($items) === 0) respond(['error' => 'Cart is empty'], 400);
 
-  // service id-k
+  
   $serviceIds = [];
   foreach ($items as $it) {
     $sid = (int)($it['serviceId'] ?? 0);
@@ -221,7 +193,7 @@ if ($method === 'POST' && $path === '/bookings') {
   $serviceIds = array_values(array_unique($serviceIds));
   if (count($serviceIds) === 0) respond(['error' => 'Invalid items'], 400);
 
-  // services map
+
   $in = implode(',', array_fill(0, count($serviceIds), '?'));
   $stmt = $pdo->prepare("
     SELECT id, name, duration_min, price
@@ -234,7 +206,7 @@ if ($method === 'POST' && $path === '/bookings') {
   $map = [];
   foreach ($services as $s) $map[(int)$s['id']] = $s;
 
-  // total + duration + norm items
+  
   $totalPrice = 0;
   $totalDuration = 0;
   $norm = [];
@@ -261,7 +233,7 @@ if ($method === 'POST' && $path === '/bookings') {
 
   if (count($norm) === 0) respond(['error' => 'No valid active services in cart'], 400);
 
-  // ütközés ellenőrzés
+
   $end = time_add_minutes($start, $totalDuration);
 
   $stmt = $pdo->prepare("
@@ -287,7 +259,6 @@ if ($method === 'POST' && $path === '/bookings') {
     }
   }
 
-  // mentés
   $pdo->beginTransaction();
   try {
     $stmt = $pdo->prepare("
